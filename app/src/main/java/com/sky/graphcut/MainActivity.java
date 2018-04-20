@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
     Bitmap img_chosen;
     Bitmap img_draw;
     //Graph
-    double [][]graph;
+    float [][]graph;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,7 +96,6 @@ public class MainActivity extends AppCompatActivity {
                 Graph.buildGraph(img_chosen,graph);
 
                 //MaxFlow
-                img_chosen_photo.setImageBitmap(img_chosen);
                 int width = img_chosen.getWidth();
                 int height = img_chosen.getHeight();
                 for(int i = 0; i < width*height; i++){
@@ -105,8 +104,33 @@ public class MainActivity extends AppCompatActivity {
 
                         msg += " "+graph[i][j];
                     }
-                    Log.d("tag", "confirm: " + msg);
+                    //Log.d("tag", "confirm: " + msg);
                 }
+
+                Log.d("Bitmap","width = " + width + " ; height = " + height);
+
+                //处理
+                Graph.minCut(img_chosen,graph);
+
+                //显示结果
+                //初始化img_draw
+                //创建画笔对象
+                Paint paint = new Paint();
+                //创建画板对象，把白纸铺在画板上
+                Canvas canvas = new Canvas(img_draw);
+                //开始作画，把原图的内容绘制在白纸上
+                canvas.drawBitmap(img_chosen, new Matrix(), paint);
+                //筛选
+                int index;
+                for(int i = 0; i < width ; i++){
+                    for(int j = 0; j < height; j++){
+                        index = j * width + i;
+                        if(graph[index][10] != Graph.OBJECT){
+                            img_draw.setPixel(i,j,Color.rgb(122,122,122));
+                        }
+                    }
+                }
+                img_chosen_photo.setImageBitmap(img_draw);
 
             }
         });
@@ -188,12 +212,12 @@ public class MainActivity extends AppCompatActivity {
                     img_chosen_photo.setImageBitmap(img_draw);
 
                     //图数据分配初始化
-                    graph = new double[width*height][11];
+                    graph = new float[width*height][11];
                     for(int i = 0; i < width*height; i++){
                         graph[i][10] = Graph.OTHER;
                     }
                     //初始化线条半径
-                    radius = Math.min(width,height)/40;
+                    radius = Math.max(width,height)/20;
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -254,7 +278,6 @@ public class MainActivity extends AppCompatActivity {
                         img_draw.setPixel(i,j,getResources().getColor(R.color.colorPrimary));
                         //分类为背景
                         graph[index][10] = Graph.BACKGROUND;
-
                     }
                     img_chosen_photo.setImageBitmap(img_draw);
                 }

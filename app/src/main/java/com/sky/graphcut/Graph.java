@@ -4,24 +4,26 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Graph {
 
     //灰度均值
-    private static int aver_object;
-    private static int aver_background;
-
-    //K
-    private static double K = 9;
+    private static boolean[] histogram_object = new boolean[256];
+    private static boolean[] histogram_background = new boolean[256];
 
     //图像处理参数
     private static final int DETA_B = 5;//相邻能量值高斯参数
     private static final int DETA_P = 3;//概率分布的高斯参数
-    private static final double WEIGHT_P = 0;//P概率所占权重
+    private static final float WEIGHT_P = 0.01f;//P概率所占权重
+    private static final  float K = 9;
+    private static final  float MinCap = 0.01f;
 
     //背景or对象
-    public static final double OBJECT = 0.0;
-    public static final double BACKGROUND = 1.0;
-    public static final double OTHER = 2.0;
+    public static final float OBJECT = 0;
+    public static final float BACKGROUND = 1;
+    public static final float OTHER = 2;
 
     //周围8个点
     public static int []offsetX = {-1, 0, 1,1,1,0,-1,-1};
@@ -29,10 +31,10 @@ public class Graph {
 
 
     //根据位图构建图
-    public static void buildGraph(Bitmap img_chosen,double [][] graph){
+    public static void buildGraph(Bitmap img_chosen,float [][] graph){
 
         //对象与背景各自均值设置
-        setAverGray(img_chosen,graph);
+        setHistogram(img_chosen,graph);
 
         //Log.d("gray", "object: " + aver_object+" ; background: " + aver_background );
         //为graph赋值-完成图的构建
@@ -56,7 +58,7 @@ public class Graph {
                         graph[index][k] = getBEnergy(Ip,Iq);
                     }
                     else {//边缘点
-                        graph[index][k] = 0.0;
+                        graph[index][k] = 0;
                     }
 
                 }
@@ -81,71 +83,75 @@ public class Graph {
     }
 
 
-    private static double getBEnergy(int Ip,int Iq){
+    private static float getBEnergy(int Ip,int Iq){
 
-        return Math.exp((-(Ip-Iq)*(Ip-Iq)/(2*DETA_B*DETA_B)));
+        float res = (float)Math.exp((-(Ip-Iq)*(Ip-Iq)/(2*DETA_B*DETA_B)));
+
+        if(res < MinCap) {
+            res = 0;
+        }
+
+        return res;
 
     }
 
-    private static double getREnergy_S(Bitmap img_chosen,double[][] graph, int x,int y){
+    private static float getREnergy_S(Bitmap img_chosen,float[][] graph, int x,int y){
         int width = img_chosen.getWidth();
         int index = y*width + x;
-        double type = graph[index][10];
+        float type = graph[index][10];
         if(type == OBJECT){
            return K;
         }
         else if(type == BACKGROUND){
-            return 0.0;
+            return 0;
         }
         else {
-            //当前点灰度值
+
             int Ip = getGray(img_chosen,x,y);
-            //当前点属于背景点的概率
-            double pr;
-            if(aver_background == -1.0){
-                pr = 0.5;
+            //调试
+            if(histogram_object[Ip]){
+                return 0;
             }
             else {
-                pr = Math.exp(-(Ip-aver_background)*(Ip-aver_background)/(2*DETA_P*DETA_P));
+                return 0;
             }
-            return WEIGHT_P*-Math.log(pr);
         }
     }
-    private static double getREnergy_T(Bitmap img_chosen,double[][] graph,int x,int y){
+    private static float getREnergy_T(Bitmap img_chosen,float[][] graph,int x,int y){
 
         int width = img_chosen.getWidth();
         int index = y*width + x;
-        double type = graph[index][10];
+        float type = graph[index][10];
         if(type == OBJECT){
-            return 0.0;
+            return 0;
         }
         else if(type == BACKGROUND){
             return K;
         }
         else {
-            //当前点灰度值
+
             int Ip = getGray(img_chosen,x,y);
-            //当前点属于物体的概率
-            double pr;
-            if(aver_object == -1.0){
-                pr = 0.5;
+            //调试
+            if(histogram_background[Ip]){
+                return WEIGHT_P*K;
             }
             else {
-                pr = Math.exp(-(Ip-aver_object)*(Ip-aver_object)/(2*DETA_P*DETA_P));
+                return 0;
             }
 
-            return WEIGHT_P*(-Math.log(pr));
         }
 
     }
 
-    //根据当点的分类获取各类别灰度均值
-    private static void setAverGray(Bitmap img_chosen,double[][] graph){
+    //设置直方图
+    private static void setHistogram(Bitmap img_chosen,float[][] graph){
 
-        int sum_object = 0;
-        int sum_background = 0;
-        int count_object = 0;
-        int count_background = 0;
+
+        //初始化
+        for(int i = 0; i < 256; i++){
+            histogram_object[i] = false;
+            histogram_background[i] = false;
+        }
 
         int width = img_chosen.getWidth();
         int height = img_chosen.getHeight();
@@ -155,35 +161,132 @@ public class Graph {
 
                 //像素点的索引
                 int index = j*width + i;
-
+                int Ip = getGray(img_chosen,i,j);
                 if(graph[index][10] == OBJECT){
-
-                    sum_object += getGray(img_chosen,i,j);
-                    count_object ++;
-
+                    histogram_object[Ip] = true;
                 }
                 else if(graph[index][10] == BACKGROUND){
-
-                    sum_background += getGray(img_chosen,i,j);
-                    count_background ++;
-
+                    histogram_background[Ip] = true;
                 }
 
             }
         }
 
-        if(count_object == 0){
-            aver_object = -1;
+    }
+
+    //maxFlow/minCut
+    public static void minCut(Bitmap img_chosen,float [][] graph){
+
+
+        int width = img_chosen.getWidth();
+        int height = img_chosen.getHeight();
+        int size = width * height;
+        boolean []addPath = new boolean[width*height];//是否已遍历
+        float []cap = new float[1];//当前路径最小容量
+
+        //初始化
+        for(int i = 0; i < size; i++){
+            addPath[i] = false;
         }
-        else {
-            aver_object = sum_object / count_object;
+        //最大流
+        for(int i = 0; i < size; ){
+            Log.d("tag", "maxFlow: " + "i :"+ i);
+            if(graph[i][8] > 0){
+                cap[0] = graph[i][8];
+                addPath[i] = true;
+                if(findCut(i,cap,graph,addPath,width)){
+                    Log.d("succeed", "Succeed: " + "i :"+ i + " ; cap" +cap[0]);
+                    //初始化
+                    graph[i][8] -= cap[0];
+                    for(int j = 0; j < size;j++){
+                        addPath[i] = false;
+                    }
+                }
+                else{
+                    i++;
+                }
+            }
+            else {
+                i++;
+            }
         }
 
-        if(count_background == 0){
-            aver_background = -1;
+        //初始化
+        for(int i = 0; i < size; i++){
+            addPath[i] = false;
+            //graph[i][10] = BACKGROUND;
         }
-        else {
-            aver_background = sum_background / count_background;
+        //分类
+        for(int i = 0; i < size; i++){
+            if(graph[i][8] > 0){
+                classify(i,graph,addPath,width);
+            }
+        }
+
+    }
+
+    static private boolean findCut(int cur,float []cap,float[][] graph,boolean[] addPath,int width){
+
+        Log.d("tag", "findCut: " + "i :"+ cur + " ; cap : " + cap[0]);
+        //到达背景点T
+        if(graph[cur][9] > 0){
+            cap[0] = Math.min(cap[0],graph[cur][9]);
+            graph[cur][9] -= cap[0];
+            return true;
+        }
+
+        //当前点的行列
+        int x = cur % width;
+        int y = cur / width;
+
+        Log.d("CapTemp", "CapTemp: " + "cur :"+ cur + " ; cap" + cap[0]);
+        float capTemp = cap[0];
+        //遍历周围8个点
+        for(int i = 0; i < 8; i++){
+            if(graph[cur][i] > 0){
+
+                cap[0] = Math.min(capTemp,graph[cur][i]);
+                //下个点
+                int nextX = x + offsetX[i];
+                int nextY = y + offsetY[i];
+                int nextIndex = nextY * width + nextX;
+
+                //标记当前已选
+                addPath[cur] = true;
+                if(!addPath[nextIndex] ){//还没遍历
+                    if(findCut(nextIndex,cap,graph,addPath,width)){
+                        graph[cur][i] -= cap[0];
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+
+    static private void classify(int cur,float[][] graph,boolean[] addPath,int width){
+
+        graph[cur][10] = OBJECT;
+        //当前点的行列
+        int x = cur % width;
+        int y = cur / width;
+
+        //遍历周围8个点
+        for(int i = 0; i < 8; i++){
+            if(graph[cur][i] > 0){//证明不超过边界
+
+                //下个点
+                int nextX = x + offsetX[i];
+                int nextY = y + offsetY[i];
+                int nextIndex = nextY * width + nextX;
+
+                addPath[cur] = true;
+                if( !addPath[nextIndex] && graph[nextIndex][10] != BACKGROUND ){//还没遍历
+                    classify(nextIndex,graph,addPath,width);
+                }
+            }
         }
 
     }
