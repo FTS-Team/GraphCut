@@ -10,10 +10,13 @@ public class Graph {
     private static int aver_object;
     private static int aver_background;
 
+    //K
+    private static double K = 9;
+
     //图像处理参数
     private static final int DETA_B = 5;//相邻能量值高斯参数
     private static final int DETA_P = 3;//概率分布的高斯参数
-    private static final double WEIGHT_P = 0.2;//P能量所占权重
+    private static final double WEIGHT_P = 0;//P概率所占权重
 
     //背景or对象
     public static final double OBJECT = 0.0;
@@ -52,8 +55,8 @@ public class Graph {
                         int Iq = getGray(img_chosen,nextX,nextY);
                         graph[index][k] = getBEnergy(Ip,Iq);
                     }
-                    else {
-                        graph[index][k] = -1.0;
+                    else {//边缘点
+                        graph[index][k] = 0.0;
                     }
 
                 }
@@ -85,19 +88,11 @@ public class Graph {
     }
 
     private static double getREnergy_S(Bitmap img_chosen,double[][] graph, int x,int y){
-
         int width = img_chosen.getWidth();
         int index = y*width + x;
         double type = graph[index][10];
         if(type == OBJECT){
-
-            double maxBEnergy = 0;
-            for(int i = 0; i < 8; i++){
-                if(graph[index][i] > maxBEnergy){
-                    maxBEnergy = graph[index][i];
-                }
-            }
-            return 1 + maxBEnergy;
+           return K;
         }
         else if(type == BACKGROUND){
             return 0.0;
@@ -115,7 +110,6 @@ public class Graph {
             }
             return WEIGHT_P*-Math.log(pr);
         }
-
     }
     private static double getREnergy_T(Bitmap img_chosen,double[][] graph,int x,int y){
 
@@ -126,13 +120,7 @@ public class Graph {
             return 0.0;
         }
         else if(type == BACKGROUND){
-            double maxBEnergy = 0;
-            for(int i = 0; i < 8; i++){
-                if(graph[index][i] > maxBEnergy){
-                    maxBEnergy = graph[index][i];
-                }
-            }
-            return 1 + maxBEnergy;
+            return K;
         }
         else {
             //当前点灰度值
@@ -199,5 +187,4 @@ public class Graph {
         }
 
     }
-
 }

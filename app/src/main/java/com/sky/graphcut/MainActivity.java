@@ -96,17 +96,17 @@ public class MainActivity extends AppCompatActivity {
                 Graph.buildGraph(img_chosen,graph);
 
                 //MaxFlow
-//                img_chosen_photo.setImageBitmap(img_chosen);
-//                int width = img_chosen.getWidth();
-//                int height = img_chosen.getHeight();
-//                for(int i = 0; i < width*height; i++){
-//                    String msg = " ";
-//                    for(int j = 0; j < 11; j++){
-//
-//                        msg += " "+graph[i][j];
-//                    }
-//                    Log.d("tag", "confirm: " + msg);
-//                }
+                img_chosen_photo.setImageBitmap(img_chosen);
+                int width = img_chosen.getWidth();
+                int height = img_chosen.getHeight();
+                for(int i = 0; i < width*height; i++){
+                    String msg = " ";
+                    for(int j = 0; j < 11; j++){
+
+                        msg += " "+graph[i][j];
+                    }
+                    Log.d("tag", "confirm: " + msg);
+                }
 
             }
         });
