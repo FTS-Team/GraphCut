@@ -23,8 +23,6 @@ import android.view.MotionEvent;
 import android.view.View.OnTouchListener;
 
 
-
-
 public class MainActivity extends AppCompatActivity {
 
     public enum DrawType{
@@ -59,7 +57,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         //find layout and button and imgView
         view_choose_photo = (RelativeLayout) findViewById(R.id.view_choose_photo);
         view_chosen_photo = (RelativeLayout) findViewById(R.id.view_chosen_photo);
@@ -90,48 +87,7 @@ public class MainActivity extends AppCompatActivity {
         btn_confirm_photo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Toast.makeText(MainActivity.this, "确认图片", Toast.LENGTH_SHORT).show();
-
-                //构建图
-                Graph.buildGraph(img_chosen,graph);
-
-                //MaxFlow
-                int width = img_chosen.getWidth();
-                int height = img_chosen.getHeight();
-                for(int i = 0; i < width*height; i++){
-                    String msg = " ";
-                    for(int j = 0; j < 11; j++){
-
-                        msg += " "+graph[i][j];
-                    }
-                    //Log.d("tag", "confirm: " + msg);
-                }
-
-                Log.d("Bitmap","width = " + width + " ; height = " + height);
-
-                //处理
-                Graph.minCut(img_chosen,graph);
-
-                //显示结果
-                //初始化img_draw
-                //创建画笔对象
-                Paint paint = new Paint();
-                //创建画板对象，把白纸铺在画板上
-                Canvas canvas = new Canvas(img_draw);
-                //开始作画，把原图的内容绘制在白纸上
-                canvas.drawBitmap(img_chosen, new Matrix(), paint);
-                //筛选
-                int index;
-                for(int i = 0; i < width ; i++){
-                    for(int j = 0; j < height; j++){
-                        index = j * width + i;
-                        if(graph[index][10] != Graph.OBJECT){
-                            img_draw.setPixel(i,j,Color.rgb(122,122,122));
-                        }
-                    }
-                }
-                img_chosen_photo.setImageBitmap(img_draw);
-
+                graphCut();
             }
         });
 
@@ -139,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
         //Initialize attribute
         drawType = DrawType.OBJECT;
         btn_object.setBackgroundColor(getResources().getColor(R.color.colorAccent));
-
+        btn_background.setBackgroundColor(getResources().getColor(R.color.colorPrimary));
         btn_object.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v){
@@ -192,38 +148,12 @@ public class MainActivity extends AppCompatActivity {
                     Uri imageUri = data.getData();
                     Log.e("TAG", imageUri.toString());
                     img_chosen_photo.setImageURI(imageUri);
-
                     img_chosen = MediaStore.Images.Media.getBitmap(this.getContentResolver(), imageUri);
-
-                    //让位图可修改
-                    int width = img_chosen.getWidth();
-                    int height = img_chosen.getHeight();
-                    Bitmap.Config config = img_chosen.getConfig();
-                    img_draw = Bitmap.createBitmap(width,height,config);
-
-                    //创建画笔对象
-                    Paint paint = new Paint();
-                    //创建画板对象，把白纸铺在画板上
-                    Canvas canvas = new Canvas(img_draw);
-                    //开始作画，把原图的内容绘制在白纸上
-                    canvas.drawBitmap(img_chosen, new Matrix(), paint);
-
-                    //设置位图
-                    img_chosen_photo.setImageBitmap(img_draw);
-
-                    //图数据分配初始化
-                    graph = new float[width*height][11];
-                    for(int i = 0; i < width*height; i++){
-                        graph[i][10] = Graph.OTHER;
-                    }
-                    //初始化线条半径
-                    radius = Math.max(width,height)/20;
-
+                    setImg_Draw();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
-
         }
     }
 
@@ -285,6 +215,88 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return true;
+    }
+
+    public void setImg_Draw(){
+
+        int width = img_chosen.getWidth();
+        int height = img_chosen.getHeight();
+        float area = width * height;
+
+        //图片缩放
+        if(area > 80000){
+            float scale = (float)Math.sqrt(80000/area);
+            Matrix scaleMatrix = new Matrix();
+            scaleMatrix.setScale(scale, scale);
+            img_draw = Bitmap.createBitmap(img_chosen,0,0,width,height,scaleMatrix,true);
+            img_chosen.recycle();
+            img_chosen = Bitmap.createBitmap(img_draw,0,0,img_draw.getWidth(),img_draw.getHeight());
+        }
+        else {
+            Bitmap.Config config = img_chosen.getConfig();
+            img_draw = Bitmap.createBitmap(width,height,config);
+            //创建画笔对象
+            Paint paint = new Paint();
+            //创建画板对象，把白纸铺在画板上
+            Canvas canvas = new Canvas(img_draw);
+            //开始作画，把原图的内容绘制在白纸上
+            canvas.drawBitmap(img_chosen, new Matrix(), paint);
+        }
+
+        //设置位图
+        img_chosen_photo.setImageBitmap(img_draw);
+
+        int newWidth = img_draw.getWidth();
+        int newHeight = img_draw.getHeight();
+        //图数据分配初始化
+        graph = new float[newWidth*newHeight][11];
+        for(int i = 0; i < newWidth*newHeight; i++){
+            graph[i][10] = Graph.OTHER;
+        }
+        //初始化线条半径
+        radius = 1 + img_draw.getWidth()/40;
+    }
+
+    public void graphCut(){
+        //构建图
+        Graph.buildGraph(img_chosen,graph);
+        Toast.makeText(MainActivity.this, "确认图片", Toast.LENGTH_SHORT).show();
+        //MaxFlow
+        int width = img_chosen.getWidth();
+        int height = img_chosen.getHeight();
+        for(int i = 0; i < width*height; i++){
+            String msg = " ";
+            for(int j = 0; j < 11; j++){
+
+                msg += " "+graph[i][j];
+            }
+            //Log.d("tag", "confirm: " + msg);
+        }
+
+        Log.d("Bitmap","width = " + width + " ; height = " + height);
+
+        //处理
+        Graph.minCut(img_chosen,graph);
+
+        //显示结果
+        //初始化img_draw
+        //创建画笔对象
+        Paint paint = new Paint();
+        //创建画板对象，把白纸铺在画板上
+        Canvas canvas = new Canvas(img_draw);
+        //开始作画，把原图的内容绘制在白纸上
+        canvas.drawBitmap(img_chosen, new Matrix(), paint);
+        //筛选
+        int index;
+        for(int i = 0; i < width ; i++){
+            for(int j = 0; j < height; j++){
+                index = j * width + i;
+                if(graph[index][10] != Graph.OBJECT){
+                    img_draw.setPixel(i,j,Color.rgb(122,122,122));
+                }
+            }
+        }
+        img_chosen_photo.setImageBitmap(img_draw);
     }
 
 }

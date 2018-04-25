@@ -3,6 +3,7 @@ package com.sky.graphcut;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
+import java.util.Random;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,13 +11,14 @@ import java.util.List;
 public class Graph {
 
     //灰度均值
-    private static boolean[] histogram_object = new boolean[256];
-    private static boolean[] histogram_background = new boolean[256];
+//    private static boolean[] histogram_object = new boolean[256];
+//    private static boolean[] histogram_background = new boolean[256];
+      private static short[] histogram_object = new short[257];//最后一位表示总数
+      private static short[] histogram_background = new short[257];
 
     //图像处理参数
     private static final int DETA_B = 5;//相邻能量值高斯参数
-    private static final int DETA_P = 3;//概率分布的高斯参数
-    private static final float WEIGHT_P = 0.01f;//P概率所占权重
+    private static final float WEIGHT_P = 0.0f;//P概率所占权重
     private static final  float K = 9;
     private static final  float MinCap = 0.01f;
 
@@ -108,13 +110,26 @@ public class Graph {
         else {
 
             int Ip = getGray(img_chosen,x,y);
-            //调试
-            if(histogram_object[Ip]){
-                return 0;
+            if(histogram_object[Ip] > 0){
+                return K * WEIGHT_P;
             }
             else {
                 return 0;
             }
+
+//            if(histogram_background[Ip] == 0){
+//                return WEIGHT_P*K;
+//            }
+//            else {
+//                float Energy = (float)-Math.log((histogram_background[Ip]/histogram_background[256]));
+//                if(Energy > K){
+//                    Energy = K;
+//                }
+//                if(Energy < MinCap) {
+//                    Energy = 0;
+//                }
+//                return Energy*WEIGHT_P;
+//            }
         }
     }
     private static float getREnergy_T(Bitmap img_chosen,float[][] graph,int x,int y){
@@ -129,28 +144,40 @@ public class Graph {
             return K;
         }
         else {
-
             int Ip = getGray(img_chosen,x,y);
-            //调试
-            if(histogram_background[Ip]){
-                return WEIGHT_P*K;
+
+            if(histogram_background[Ip] > 0){
+                return K*WEIGHT_P;
             }
             else {
                 return 0;
             }
 
+//            if(histogram_object[Ip] == 0){
+//                return WEIGHT_P*K;
+//            }
+//            else {
+//                float Energy = (float)-Math.log((histogram_object[Ip]/histogram_object[256]));
+//                if(Energy > K){
+//                    Energy = K;
+//                }
+//                if(Energy < MinCap) {
+//                    Energy = 0;
+//                }
+//                return WEIGHT_P*Energy;
+//            }
         }
 
     }
 
-    //设置直方图
-    private static void setHistogram(Bitmap img_chosen,float[][] graph){
+        //设置直方图
+        private static void setHistogram(Bitmap img_chosen,float[][] graph){
 
 
         //初始化
-        for(int i = 0; i < 256; i++){
-            histogram_object[i] = false;
-            histogram_background[i] = false;
+        for(int i = 0; i < 257; i++){
+            histogram_object[i] = 0;
+            histogram_background[i] = 0;
         }
 
         int width = img_chosen.getWidth();
@@ -158,19 +185,21 @@ public class Graph {
 
         for(int i = 0; i < width; i++){
             for(int j = 0; j < height ; j++){
-
                 //像素点的索引
                 int index = j*width + i;
                 int Ip = getGray(img_chosen,i,j);
                 if(graph[index][10] == OBJECT){
-                    histogram_object[Ip] = true;
+                    histogram_object[Ip]++;
+                    histogram_object[256]++;
                 }
                 else if(graph[index][10] == BACKGROUND){
-                    histogram_background[Ip] = true;
+                    histogram_background[Ip]++;
+                    histogram_background[256]++;
                 }
 
             }
         }
+
 
     }
 
@@ -184,13 +213,12 @@ public class Graph {
         boolean []addPath = new boolean[width*height];//是否已遍历
         float []cap = new float[1];//当前路径最小容量
 
-        //初始化
-        for(int i = 0; i < size; i++){
-            addPath[i] = false;
-        }
         //最大流
         for(int i = 0; i < size; ){
-            Log.d("tag", "maxFlow: " + "i :"+ i);
+            //Log.d("tag", "maxFlow: " + "i :"+ i);
+            for(int j = 0; j < size;j++){
+                addPath[j] = false;
+            }
             if(graph[i][8] > 0){
                 cap[0] = graph[i][8];
                 addPath[i] = true;
@@ -198,9 +226,7 @@ public class Graph {
                     Log.d("succeed", "Succeed: " + "i :"+ i + " ; cap" +cap[0]);
                     //初始化
                     graph[i][8] -= cap[0];
-                    for(int j = 0; j < size;j++){
-                        addPath[i] = false;
-                    }
+                    //i = 0;
                 }
                 else{
                     i++;
@@ -214,9 +240,8 @@ public class Graph {
         //初始化
         for(int i = 0; i < size; i++){
             addPath[i] = false;
-            //graph[i][10] = BACKGROUND;
         }
-        //分类
+        // 分类
         for(int i = 0; i < size; i++){
             if(graph[i][8] > 0){
                 classify(i,graph,addPath,width);
@@ -227,7 +252,7 @@ public class Graph {
 
     static private boolean findCut(int cur,float []cap,float[][] graph,boolean[] addPath,int width){
 
-        Log.d("tag", "findCut: " + "i :"+ cur + " ; cap : " + cap[0]);
+       //Log.d("tag", "findCut: " + "i :"+ cur + " ; cap : " + cap[0]);
         //到达背景点T
         if(graph[cur][9] > 0){
             cap[0] = Math.min(cap[0],graph[cur][9]);
@@ -239,11 +264,21 @@ public class Graph {
         int x = cur % width;
         int y = cur / width;
 
-        Log.d("CapTemp", "CapTemp: " + "cur :"+ cur + " ; cap" + cap[0]);
+        //Log.d("CapTemp", "CapTemp: " + "cur :"+ cur + " ; cap" + cap[0]);
         float capTemp = cap[0];
+
+        //调整方向
+//        lastDirection = (lastDirection + 8 - 2);
+//        int []Direction = new int[8];
+//        for(int i = 0; i < 8; i++){
+//            Direction[i] = (lastDirection + i) % 8;
+//        }
+
         //遍历周围8个点
         for(int i = 0; i < 8; i++){
-            if(graph[cur][i] > 0){
+
+
+            if(graph[cur][i] >= MinCap){
 
                 cap[0] = Math.min(capTemp,graph[cur][i]);
                 //下个点
@@ -255,12 +290,19 @@ public class Graph {
                 addPath[cur] = true;
                 if(!addPath[nextIndex] ){//还没遍历
                     if(findCut(nextIndex,cap,graph,addPath,width)){
-                        graph[cur][i] -= cap[0];
+                        graph[cur][i] -= cap[0];//减去当前流量
+                        if(graph[cur][i] < MinCap){
+                            graph[cur][i] = 0;
+                        }
+                        graph[nextIndex][(i+4)%8] += cap[0];//加上反向流量
+                        //graph[cur][10] = OBJECT;
                         return true;
                     }
                 }
             }
         }
+
+        cap[0] = capTemp;
 
         return false;
     }
