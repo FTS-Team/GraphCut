@@ -51,17 +51,17 @@
             android:orientation="horizontal">
             <Button
                 android:id="@+id/btn_object"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginLeft="10dp"
+                android:layout_width="100dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:text="对象"
                 android:textSize="20dp"
                 android:background="@color/colorGray"/>
             <Button
                 android:id="@+id/btn_background"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginLeft="10dp"
+                android:layout_width="100dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:text="背景"
                 android:textSize="20dp"
                 android:background="@color/colorGray" />
